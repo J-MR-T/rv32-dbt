@@ -243,8 +243,8 @@ void hexdump(const void *buffer, ssize_t len, size_t addressDisplayOffset = 0) {
 // HW11 start
 /*
 Analysis: 
-- sample programs can be found in samples/
-- I included a binary just in case, compiled with `riscv32-unknown-elf-gcc -nostdlib mini.c -o mini --sysroot=/usr/riscv32-unknown-elf -march=rv32id`
+- sample programs can be found in samples/mini.c
+- I included a binary just in case, compiled with `riscv32-unknown-elf-gcc -nostdlib mini.c -o mini --sysroot=/usr/riscv32-unknown-elf -march=rv32id` (Makefile for mini also included)
 - performance testing was done using `time` (the zsh builtin, not the program), as the performance comparison was always to qemu which was tested the same way, and a single run was long enough, that the results were not skewed by more then a few percent. So take the performance numbers with a grain of salt, consider them right in the ballpark, but not exact. Only the time reportedly spent in user mode was considered. The program was compiled on -O3 for the performance tests
 
 Performance tests (`mine` for my translator, 10 iterations):

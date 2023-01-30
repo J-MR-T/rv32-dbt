@@ -10,6 +10,11 @@ void __attribute__ ((noinline))  write(int fd, char* str, int len){
     );
 }
 
+int putchar(char c){
+    write(1, &c, 1);
+	return 0;
+}
+
 void __attribute__ ((noinline))  exit(int code){
     (void)code;
     asm(
@@ -17,6 +22,7 @@ void __attribute__ ((noinline))  exit(int code){
         "li a7, 93;"
         "ecall"
     );
+	__builtin_unreachable();
 }
 
 int printHelloWorld(){
@@ -50,6 +56,19 @@ int mul(int a, int b){
     return result;
 }
 
+int div(int a, int b){
+    int result = -1;
+    for(int aCpy = a; aCpy > 0; aCpy -= b){
+		result++;
+    }
+    return result;
+}
+
+int mod(int a, int b){
+    int division = div(a,b); // a/b
+    return a - mul(division, b);
+}
+
 // different performance tests
 int multest(){
     return mul(234523452, 922463) % 256;
@@ -57,7 +76,7 @@ int multest(){
 
 void _start()
 {
-    //printHelloWorld();
+    printHelloWorld();
     exit(multest());
 
     exit(0);

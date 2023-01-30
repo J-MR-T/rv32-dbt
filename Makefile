@@ -9,7 +9,7 @@ SOURCES=main.cc
 OUT=main
 
 LLVM_CFLAGS=$(shell $(LLVM_CONFIG) --cppflags --ldflags --libs) -DLLVM_DISABLE_ABI_BREAKING_CHECKS_ENFORCING=1 
-.PHONY: all debug clean frvdec-meson
+.PHONY: all debug clean frvdec-meson forPerf
 all: frvdec-meson $(SOURCES)
 		$(CPPC) $(SOURCES) $(CFLAGS) $(LLVM_CFLAGS) -DNDEBUG -o $(OUT)
 
