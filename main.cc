@@ -441,7 +441,7 @@ public:
     void run(uintptr_t pc, uint32_t* regs, uint32_t numRegs){
         while(true){
             ChunkFunc* translated;
-            if(codeCache.find(pc) == codeCache.end()){
+            if(auto it = codeCache.find(pc); it == codeCache.end()){
                 // translate code
                 translated = translate<step>(pc, step?1:64);
                 codeCache[pc] = translated;
@@ -464,7 +464,7 @@ menu:
                 if(c == 'q' || c == EOF)
                     break;
                 else if(c == 'i'){
-                    DEBUGLOG("value of regs: " << regs.data());
+                    DEBUGLOG("value of regs pointer: " << regs);
                     for (unsigned i = 0; i < numRegs; ++i) {
                         if(regs[i]!=0){
                             llvm::outs() << "r" << i << " = 0x"; llvm::outs().write_hex(regs[i]) << " = " << regs[i];
