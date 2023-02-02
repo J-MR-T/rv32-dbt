@@ -445,7 +445,7 @@ public:
                 translated = translate<step>(pc, step?1:64);
                 codeCache[pc] = translated;
             } else {
-                translated = codeCache[pc];
+                translated = it->getSecond();
             }
 
             if constexpr(step)
