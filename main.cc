@@ -285,7 +285,6 @@ void* compile(std::unique_ptr<llvm::Module> mod, const std::string& name) {
     llvm::ExecutionEngine* engine = builder.create();
     if (!engine)
         err(1, "could not create engine: %s", error.c_str());
-    // print generated assembly for debugging
 
     return reinterpret_cast<void*>(engine->getFunctionAddress(name));
 }
@@ -679,13 +678,14 @@ translateLoadStore:
                     auto hostAddr = irb.CreateAdd(irb.CreateIntCast(guestAddr, irb.getInt64Ty(), false /* don't sign extend addresses */), irb.getInt64((uint64_t)guestMem));
                     auto loadStoreType = irb.getIntNTy(loadStoreOpts & LD_ST_SIZE_MASK);
                     if(loadStoreOpts & LD_ST_LOAD) {
-                        auto load = irb.CreateLoad(loadStoreType, irb.CreateGEP(loadStoreType,  irb.CreateIntToPtr(hostAddr, irb.getPtrTy()), {irb.getInt32(inst->imm)}));
+                        auto load = irb.CreateLoad(loadStoreType, irb.CreateGEP(irb.getInt8Ty(),  irb.CreateIntToPtr(hostAddr, irb.getPtrTy()), {irb.getInt32(inst->imm)}));
                         setReg(inst->rd, irb.CreateIntCast(load, irb.getInt32Ty(), loadStoreOpts & LD_ST_SIGNED));
                     } else {
+                        DEBUGLOG("storing to address " << guestMem << " plus register " << inst->rs1 << " plus immediate " << inst->imm);
                         // store
                         irb.CreateStore(
                             irb.CreateIntCast(getReg(inst->rs2), loadStoreType, true /* ignored because downcast */),
-                            irb.CreateGEP(loadStoreType, irb.CreateIntToPtr(hostAddr, irb.getPtrTy()), {irb.getInt32(inst->imm)})
+                            irb.CreateGEP(irb.getInt8Ty(), irb.CreateIntToPtr(hostAddr, irb.getPtrTy()), {irb.getInt32(inst->imm)})
                         );
                     }
                     }
