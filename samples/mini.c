@@ -4,20 +4,20 @@
 // hopefully shoulnd't inline because asm() anyway, but just in case
 void __attribute__ ((noinline))  write(int fd, char* str, int len){
     (void)fd, (void)str, (void)len;
-    asm(
+    asm volatile (
         "li a7, 64;"
         "ecall;"
     );
 }
 
 int putchar(char c){
-    write(1, &c, 1);
+	write(1, &c, 1);
 	return 0;
 }
 
 void __attribute__ ((noinline))  exit(int code){
     (void)code;
-    asm(
+    asm volatile (
         //"li a0, 55; 
         "li a7, 93;"
         "ecall"

@@ -1,9 +1,12 @@
 # standard cpp makefile
+# assumes llvm is installed to /usr/local, like a custom LLVM build recommends
 
 CPPC=g++
-CFLAGS=-Wall -Wextra -Wpedantic -O3 -std=c++2b -fno-rtti -lz -Ifrvdec -Lfrvdec/builddir -lfrvdec
+CFLAGS=-Wall -Wextra -Wpedantic -O3 -std=c++2b -fno-rtti -lz -lzstd -lcurses -Ifrvdec -Lfrvdec/builddir -lfrvdec -I/usr/local/include -L/usr/local/lib
 
-LLVM_CONFIG=llvm-config
+# linked against llvm commit a403d75be7, but both LLVM 16 and 17 should work
+
+LLVM_CONFIG=/usr/local/bin/llvm-config
 
 SOURCES=main.cc
 OUT=main

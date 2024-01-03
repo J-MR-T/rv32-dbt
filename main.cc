@@ -266,6 +266,7 @@ Possible performance improvements:
 */
 // dynamic binary translator for rv32i
 
+/// takes a pointer in the host address space and returns an llvm pointer pointing to that same address
 llvm::Value* hostPointerToLLVMPtr(llvm::IRBuilder<>& irb, void* ptr){
     return irb.CreateIntToPtr(irb.getInt64(reinterpret_cast<uint64_t>(ptr)), irb.getPtrTy());
 }
@@ -422,7 +423,7 @@ public:
             err(EXIT_FAILURE, "mprotect failed");
 
 
-        // make this configurable
+        // TODO make this configurable
         //uintptr_t loadAddr =
 
         std::array<uint32_t, 32> regs = {0};
@@ -547,8 +548,6 @@ menu:
 
     template<bool print = false>
     ChunkFunc* translate(uintptr_t pc, unsigned maxInstructionsPerChunk = 16){
-        // TODO check if need to translate, or cached
-
         if constexpr(print) llvm::outs() << color::red << "Translating Instruction(s):" << color::reset << "\n";
         auto [numInsts, insts, foundJump] = decodeChunk<print>(pc, maxInstructionsPerChunk);
 #ifndef NDEBUG
@@ -612,47 +611,49 @@ menu:
                 LD_ST_LOAD = 1 << 0,
                 LD_ST_STORE = 0,
             };
+            bool mulFirstSigned, mulSecondSigned;
             const uint32_t LD_ST_SIZE_MASK = 0b111 << 3;
             switch(inst->mnem){
-                case FRV_ADD:
-                    binOp=llvm::Instruction::Add;      secondOp = getReg(inst->rs2);              goto translateBinOp;
-                case FRV_SUB:
-                    binOp=llvm::Instruction::Sub;      secondOp = getReg(inst->rs2);              goto translateBinOp;
-                case FRV_SLL:
-                    binOp=llvm::Instruction::Shl;      secondOp = getReg(inst->rs2 & 0x1f);       goto translateBinOp;
-                case FRV_SRL:
-                    binOp=llvm::Instruction::LShr;     secondOp = getReg(inst->rs2 & 0x1f);       goto translateBinOp;
-                case FRV_SRA:
-                    binOp=llvm::Instruction::AShr;     secondOp = getReg(inst->rs2 & 0x1f);       goto translateBinOp;
-                case FRV_OR:
-                    binOp=llvm::Instruction::Or;       secondOp = getReg(inst->rs2);              goto translateBinOp;
-                case FRV_AND:
-                    binOp=llvm::Instruction::And;      secondOp = getReg(inst->rs2);              goto translateBinOp;
-                case FRV_XOR:
-                    binOp=llvm::Instruction::Xor;      secondOp = getReg(inst->rs2);              goto translateBinOp;
-                case FRV_SLT:
-                    cmpPred = llvm::CmpInst::ICMP_SLT; secondOp = getReg(inst->rs2);              goto translateComparison;
-                case FRV_SLTU:
-                    cmpPred = llvm::CmpInst::ICMP_ULT; secondOp = getReg(inst->rs2);              goto translateComparison;
+                case FRV_ADD:  binOp=llvm::Instruction::Add;       secondOp = getReg(inst->rs2);              goto translateBinOp;
+                case FRV_SUB:  binOp=llvm::Instruction::Sub;       secondOp = getReg(inst->rs2);              goto translateBinOp;
+                case FRV_SLL:  binOp=llvm::Instruction::Shl;       secondOp = getReg(inst->rs2 & 0x1f);       goto translateBinOp;
+                case FRV_SRL:  binOp=llvm::Instruction::LShr;      secondOp = getReg(inst->rs2 & 0x1f);       goto translateBinOp;
+                case FRV_SRA:  binOp=llvm::Instruction::AShr;      secondOp = getReg(inst->rs2 & 0x1f);       goto translateBinOp;
+                case FRV_OR:   binOp=llvm::Instruction::Or;        secondOp = getReg(inst->rs2);              goto translateBinOp;
+                case FRV_AND:  binOp=llvm::Instruction::And;       secondOp = getReg(inst->rs2);              goto translateBinOp;
+                case FRV_XOR:  binOp=llvm::Instruction::Xor;       secondOp = getReg(inst->rs2);              goto translateBinOp;
+                case FRV_SLT:  cmpPred = llvm::CmpInst::ICMP_SLT;  secondOp = getReg(inst->rs2);              goto translateComparison;
+                case FRV_SLTU: cmpPred = llvm::CmpInst::ICMP_ULT;  secondOp = getReg(inst->rs2);              goto translateComparison;
 
-                case FRV_ADDI:
-                    binOp=llvm::Instruction::Add;      secondOp = irb.getInt32(inst->imm);        goto translateBinOp;
-                case FRV_SLLI:
-                    binOp=llvm::Instruction::Shl;      secondOp = irb.getInt32(inst->imm & 0x1f); goto translateBinOp;
-                case FRV_SRLI:
-                    binOp=llvm::Instruction::LShr;     secondOp = irb.getInt32(inst->imm & 0x1f); goto translateBinOp;
-                case FRV_SRAI:
-                    binOp=llvm::Instruction::AShr;     secondOp = irb.getInt32(inst->imm & 0x1f); goto translateBinOp;
-                case FRV_ORI:
-                    binOp=llvm::Instruction::Or;       secondOp = irb.getInt32(inst->imm);        goto translateBinOp;
-                case FRV_ANDI:
-                    binOp=llvm::Instruction::And;      secondOp = irb.getInt32(inst->imm);        goto translateBinOp;
-                case FRV_XORI:
-                    binOp=llvm::Instruction::Xor;      secondOp = irb.getInt32(inst->imm);        goto translateBinOp;
-                case FRV_SLTI:
-                    cmpPred = llvm::CmpInst::ICMP_SLT; secondOp = irb.getInt32(inst->imm);        goto translateComparison;
-                case FRV_SLTIU:
-                    cmpPred = llvm::CmpInst::ICMP_ULT; secondOp = irb.getInt32(inst->imm);        goto translateComparison;
+                case FRV_ADDI:  binOp=llvm::Instruction::Add;      secondOp = irb.getInt32(inst->imm);        goto translateBinOp;
+                case FRV_SLLI:  binOp=llvm::Instruction::Shl;      secondOp = irb.getInt32(inst->imm & 0x1f); goto translateBinOp;
+                case FRV_SRLI:  binOp=llvm::Instruction::LShr;     secondOp = irb.getInt32(inst->imm & 0x1f); goto translateBinOp;
+                case FRV_SRAI:  binOp=llvm::Instruction::AShr;     secondOp = irb.getInt32(inst->imm & 0x1f); goto translateBinOp;
+                case FRV_ORI:   binOp=llvm::Instruction::Or;       secondOp = irb.getInt32(inst->imm);        goto translateBinOp;
+                case FRV_ANDI:  binOp=llvm::Instruction::And;      secondOp = irb.getInt32(inst->imm);        goto translateBinOp;
+                case FRV_XORI:  binOp=llvm::Instruction::Xor;      secondOp = irb.getInt32(inst->imm);        goto translateBinOp;
+                case FRV_SLTI:  cmpPred = llvm::CmpInst::ICMP_SLT; secondOp = irb.getInt32(inst->imm);        goto translateComparison;
+                case FRV_SLTIU: cmpPred = llvm::CmpInst::ICMP_ULT; secondOp = irb.getInt32(inst->imm);        goto translateComparison;
+
+                // RV32M
+                // unsigned overflow with mod 2^32, exactly correct for us.
+                case FRV_MUL:    binOp=llvm::Instruction::Mul;     secondOp = getReg(inst->rs2);              goto translateBinOp;
+                case FRV_MULH:   mulFirstSigned =       mulSecondSigned = true;                   goto translateMulHXX;
+                case FRV_MULHU:  mulFirstSigned =       mulSecondSigned = false;                  goto translateMulHXX;
+                case FRV_MULHSU: mulFirstSigned = true; mulSecondSigned = false;                  goto translateMulHXX;
+translateMulHXX: // here we need the upper 32 bits of the 64 bit result
+                    setReg(inst->rd, 
+                        irb.CreateLShr(irb.CreateMul(
+                            irb.CreateIntCast(getReg(inst->rs1), irb.getInt64Ty(), mulFirstSigned),
+                            irb.CreateIntCast(getReg(inst->rs2), irb.getInt64Ty(), mulSecondSigned)
+                        ), 32)
+                    );
+                    break;
+
+                case FRV_DIV:  binOp=llvm::Instruction::SDiv;     secondOp = getReg(inst->rs2);              goto translateBinOp;
+                case FRV_DIVU: binOp=llvm::Instruction::UDiv;     secondOp = getReg(inst->rs2);              goto translateBinOp;
+                case FRV_REM:  binOp=llvm::Instruction::SRem;     secondOp = getReg(inst->rs2);              goto translateBinOp;
+                case FRV_REMU: binOp=llvm::Instruction::URem;     secondOp = getReg(inst->rs2);              goto translateBinOp;
 
 translateComparison:
                     setReg(inst->rd, irb.CreateIntCast(irb.CreateICmp(cmpPred, getReg(inst->rs1), secondOp), irb.getInt32Ty(), false));
@@ -677,6 +678,7 @@ translateLoadStore:
                     auto guestAddr = getReg(inst->rs1);
                     auto hostAddr = irb.CreateAdd(irb.CreateIntCast(guestAddr, irb.getInt64Ty(), false /* don't sign extend addresses */), irb.getInt64((uint64_t)guestMem));
                     auto loadStoreType = irb.getIntNTy(loadStoreOpts & LD_ST_SIZE_MASK);
+                    assert(std::has_single_bit(loadStoreType));
                     if(loadStoreOpts & LD_ST_LOAD) {
                         auto load = irb.CreateLoad(loadStoreType, irb.CreateGEP(irb.getInt8Ty(),  irb.CreateIntToPtr(hostAddr, irb.getPtrTy()), {irb.getInt32(inst->imm)}));
                         setReg(inst->rd, irb.CreateIntCast(load, irb.getInt32Ty(), loadStoreOpts & LD_ST_SIGNED));
@@ -702,22 +704,25 @@ translateLoadStore:
                     break;
                 case FRV_ECALL:
                     {
-                        auto* regs = func->arg_begin();
-                        // this actually works lol. This is the sketchiest code I've ever written xD
+                    auto* regs = func->arg_begin();
+                    // this actually works lol. This is the sketchiest code I've ever written xD
+                    // this calls into the host program, to execute the syscall, as this makes it easiest to implement custom logic (don't want to implement all syscalls in llvm)
                     irb.CreateCall(
-                        llvm::FunctionCallee(llvm::FunctionType::get(irb.getVoidTy(), {irb.getPtrTy(), irb.getPtrTy()}, false),
+                        // this is the callee type of the host `syscall` function. It gets a pointer to the registers, as well as to the guest memory
+                        llvm::FunctionCallee(llvm::FunctionType::get(irb.getVoidTy(), {irb.getPtrTy(), irb.getPtrTy()}, /* isVarArg = */ false),
                             hostPointerToLLVMPtr(irb, reinterpret_cast<void*>(syscall))),
+                        // call with regs and guestMem. regs is already an llvm pointer, guestMem needs to be converted
                         {regs, hostPointerToLLVMPtr(irb, guestMem)}
                     );
                     }
-                    //EXIT_TODO_X("ecall not implemented");
                     break;
                 case FRV_FENCE:
                     EXIT_TODO_X("fence not implemented");
                     break;
                 case FRV_FENCEI:
-                    DEBUGLOG("encountered fence.i: no instruction cache, flushing nothing");
-                    // TODO maybe yeet all translated code?
+                    DEBUGLOG("encountered fence.i: flushing code cache. If you're not on x86, you will see some weird behaviour now.");
+                    codeCache.clear();
+                    // for non x86 systems, we would have to flush our hosts instruction cache as well, but x86 l1i cache coherency *go*
                     break;
                 default:
                     char buf[4096] = {0};
@@ -790,7 +795,9 @@ translateLoadStore:
 };
 
 int main(int argc, char** argv) {
-    // TODO actually make it commandline configurable
+    // Make sure the MCJIT does not get thrown away by the linker
+    LLVMLinkInMCJIT();
+
     auto args = ArgParse::parse(argc, argv);
 
     llvm::InitializeNativeTarget();
@@ -800,6 +807,8 @@ int main(int argc, char** argv) {
     DBT dbt{0x100000000, commandlineConfigurableProgramLoadAddress, args[ArgParse::possible.input]};
 
     bool step = args.contains(ArgParse::possible.step);;
+    // 'convert' to compile-time known step value
+    // this might be a case of completely unnecessary premature optimization. But the template arg also makes the code a bit easier to read imo
     if(step)
         dbt.emulate<true>();
     else
